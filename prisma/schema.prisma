@@ -1,0 +1,95 @@
+// SQL Server does not support native enums, so role/status/stock fields below
+// are plain strings. Allowed literal values are enforced in the application
+// layer (src/lib/menu/types.ts + zod schemas), not by the database.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  /// "super_admin" | "branch_manager"
+  role         String
+  branchId     String?
+  branch       Branch?  @relation(fields: [branchId], references: [id])
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([branchId])
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  address   String?
+  phone     String?
+  /// "active" | "inactive"
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  overrides ProductBranchOverride[]
+}
+
+model Category {
+  id           String   @id @default(cuid())
+  nameTr       String
+  nameEn       String?
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  products     Product[]
+
+  @@index([displayOrder])
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  nameTr       String
+  nameEn       String?
+  descTr       String?
+  descEn       String?
+  imagePath    String?
+  defaultPrice Decimal  @db.Decimal(10, 2)
+  calories     Int?
+  categoryId   String
+  category     Category @relation(fields: [categoryId], references: [id])
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  overrides    ProductBranchOverride[]
+
+  @@index([categoryId])
+  @@index([displayOrder])
+}
+
+model ProductBranchOverride {
+  id          String   @id @default(cuid())
+  productId   String
+  branchId    String
+  price       Decimal? @db.Decimal(10, 2)
+  /// "available" | "sold_out"
+  stockStatus String   @default("available")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product     Product  @relation(fields: [productId], references: [id])
+  branch      Branch   @relation(fields: [branchId], references: [id])
+
+  @@unique([productId, branchId])
+  @@index([branchId])
+}
